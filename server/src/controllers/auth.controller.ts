@@ -6,9 +6,6 @@ import { addMinutes } from "date-fns";
 import { sendVerificationEmail } from "../utils/email.config";
 
 // TO DO
-// DELETE ACCOUNT
-// LOGOUT
-// RESEND VERIFICATION EMAIL
 // GOOGLE SIGNUP
 // MERGE GOOGLE AND NORMAL EMAIL SIGNUP
 // UPDATE DETAILS
@@ -120,12 +117,10 @@ export const verifyEmail = async (
     });
 
     if (!user) {
-      res
-        .status(404)
-        .json({
-          success: false,
-          message: "Invalid or expired verification code.",
-        });
+      res.status(404).json({
+        success: false,
+        message: "Invalid or expired verification code.",
+      });
     }
 
     const updatedUser = await prisma.user.update({
@@ -138,15 +133,97 @@ export const verifyEmail = async (
     });
 
     // CHANGE TO FRONTEND PAGE....
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Email Account Verified",
-        data: { user: updatedUser },
-      });
+    res.status(200).json({
+      success: true,
+      message: "Email Account Verified",
+      data: { user: updatedUser },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: "Internal server error" });
+    return;
+  }
+};
+
+// DELETE ACCOUNT
+export const deleteUser = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const user = req.user;
+    if (!user || !user.email) {
+      res.status(404).json({ success: false, message: "User doesn't exist" });
+      return;
+    }
+
+    const deleteUser = await prisma.user.delete({
+      where: { email: user.email },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+      data: { user: deleteUser },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Internal server error" });
+    return;
+  }
+};
+
+// RESEND VERIFY EMAIL
+export const resendVerificationEmail = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400).json({ success: false, message: "Email is required" });
+    return;
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        email: email,
+      },
+    });
+
+    if (!user) {
+      res.status(400).json({ success: false, message: "User doesn't exist" });
+      return;
+    }
+
+    const verificationCode = Math.floor(
+      10000 + Math.random() * 90000
+    ).toString();
+
+    const updatedUser = await prisma.user.update({
+      where: { email: user.email },
+      data: {
+        verificationCode,
+        verificationCodeExpires: addMinutes(new Date(), 30),
+      },
+    });
+
+    sendVerificationEmail(
+      updatedUser.username,
+      updatedUser.email,
+      verificationCode
+    ).catch(console.error);
+
+    res.status(200).json({
+      success: true,
+      message: "Verification email resent successfully",
+      data: {
+        username: updatedUser.username,
+      },
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ success: false, message: "Internal server error", error: error });
     return;
   }
 };

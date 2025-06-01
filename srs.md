@@ -26,4 +26,4 @@
 - Draft Events (Save events before publishing)
 - Event Clash Detection Alerts
 - Event Registration Management (Platform-based or external links)
-- Event Analyt
+- Event Analyst
